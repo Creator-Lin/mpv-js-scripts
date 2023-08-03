@@ -1,47 +1,58 @@
 # mpv-js-scripts
 
-A collection of JS mpv scripts that can be used.
+一系列适用于mpv视频播放器的JS扩展脚本。
 
-To download, open the [dist](dist) folder and just put the `.js` file into your `scripts` folder.
+要安装本脚本，请打开[dist](dist)文件夹，并将其中的所有文件移至mpv视频播放器的配置文件夹中。
 
-### [`screenshot-mosaic`](dist/screenshot-mosaic.js)
+### [`screenshot-mosaic`](dist/screenshot-mosaic.js)（视频摘要）
 
-**You need ImageMagick installed on your system** (especially the `montage` command need to be available)
+**您需要先在系统中安装ImageMagick软件** (并且该软件的`montage`指令必须为可用状态)
 
-Create a mosaic of an images like what MPC-HC does.
+如同MPC-HC一样创建视频摘要
 
-![Sample](https://p.ihateani.me/qklxfhvu.jpg)
+![Sample](sample/紫罗兰永恒花园剧场版.mp4.mosaic4x3.png)
 
-To run, just press `ctrl+alt+s`, it will create a `$fileName.mosaic$colx$row.png` file in either your screenshot folder or the mpv home directory. (`~/.mpv` or `%APPDATA%/mpv`)
+使用快捷键`Ctrl+Alt+S`来运行视频摘要脚本，脚本将在截图文件夹或者mpv的配置文件夹中
 
-You can modify the keybind:
+生成名为`$fileName.mosaic$colx$row.(jpg|png)`的视频摘要文件。
+
+您可以更改运行该脚本的快捷键：
 ```conf
 ctrl+alt+s script-binding screenshot-mosaic
 ```
-
-You can also modify the configuration by adding `screenshot-mosaic.conf` on your `script-opts` folder:
+您也可以通过在`script-opts`文件夹中创建`screenshot-mosaic.conf`来更改该脚本的配置：
 ```conf
-# Number of rows for screenshot
+# 创建视频摘要的截图行数
 rows=3
-# Number of columns for screenshot
+# 创建视频摘要的截图列数
 columns=4
-# Padding between images/screenshots (in pixels)
+# 截图或图片之间的间隔大小 (单位为 pixels)
 padding=10
-# Output format (jpg/png)
+# 输出视频摘要的格式，可选择（jpg|png)
 format=png
-# Screenshot mode (video/subtitles/window)
-# --> video: Screenshot the video only
-# --> subtitles: Screenshot the video + subs
-# --> window: Screenshot the whole window, including the UI
+# 截图模式 (video|subtitles|window)
+# --> video: 仅视频截图
+# --> subtitles: 视频截图+字幕
+# --> window: 整个mpv播放器的截图，包括播放器的UI
 mode=video
-# Append the "magick" command to the command line.
-# Sometimes on windows, you cannot really use any magick command without prefixing
-# "magick", if the command failed, you can set this to `yes` to prepend the command with `magick`
-append_magick=no
-# Resize the final montage into the video height.
+# 在命令行中加入magick前缀
+# 在Windows操作系统中，如果没有magick前缀，您难以运行任何magick指令，
+# 如果脚本运行失败，您可以尝试将该选项设为yes来在命令行中加入magick前缀
+# 建议所有Windows用户将该选项设为yes
+append_magick=yes
+# 调整最终生成的视频摘要大小
 # ---
-# I recommend keeping this enabled since if you have a 4k video, you don't want to
-# have a montage that is basically 4k * whatever the number of screenshots you have.
-# It would be way too big, so this will resize it back to the video height.
+# 如果您拥有4k视频，我建议您将该选项设为yes
+# 无论您在视频摘要中使用了多少张视频截图，您都不希望拥有一张以4k尺寸为基础创建的视频摘要。
+# 该选项调整了最终生成的视频摘要大小，使得视频摘要不会变得很大。
 resize=yes
+```
+
+请注意：
+```
+1.该脚本将播放器内显性提示进行了汉化
+2.该脚本将视频摘要注释进行了汉化并重制了排版
+3.该脚本将默认视频摘要输出位置改至桌面
+4.该脚本将配置文件默认值更改为 Windows 选项
+5.该脚本将不定期同步上游项目进行更新
 ```

@@ -35,7 +35,7 @@ var mosaicOptions = {
     // Append the "magick" command to the command line.
     // Sometimes on windows, you cannot really use any magick command without prefixing
     // "magick", if the command failed, you can set this to `yes` in your config.
-    append_magick: "no",
+    append_magick: "yes",
     // Resize the final montage into the video height.
     // I recommend keeping this enabled since if you have a 4k video, you don't want to
     // have a montage that is basically 4k * whatever the number of screenshots you have.
@@ -154,6 +154,9 @@ var Pathing = /** @class */ (function () {
             if (path.indexOf("/")) {
                 path = path.replace(/\//g, "\\");
             }
+            if (path.indexOf("Program Files")) {
+                path = path.replace("Program Files", "Progra~1");
+            }
         }
         return path;
     };
@@ -196,9 +199,9 @@ function getOutputDir() {
         }
     }
     // Use mpv home directory as fallback
-    var homeDir = mp.command_native(["expand-path", "~~home/"]);
-    mp.msg.error("Could not get screenshot directory, trying to use mpv home directory: ".concat(homeDir));
-    return paths.fixPath(homeDir);
+    var desktopDir = mp.command_native(["expand-path", "~~desktop/"]);
+    mp.msg.error("Could not get screenshot directory, trying to use desktop directory: ".concat(desktopDir));
+    return paths.fixPath(desktopDir);
 }
 /**
  * Explicitly check if the execution of magick command was successful.
@@ -345,37 +348,36 @@ function runAnnotation(fileName, videoWidth, videoHeight, duration, imgOutput, c
     }
     var annotateCmds = __spreadArray(__spreadArray([], annotateCmdsBase, true), [
         "convert",
+
         "-background",
         "white",
+
+        "-font",
+        "华文宋体",
+
         "-pointsize",
         "40",
-        "label:mpv Media Player",
+        "label:MPV Media Player",
         "-gravity",
         "northwest",
-        "-pointsize",
-        "16",
+
+        //add top margin
         "-splice",
-        "5x0",
-        "label:File Name: " + fileName + "",
-        "-gravity",
-        "northwest",
+        "0x10",
+
         "-pointsize",
-        "16",
-        "label:File Size: " + humanizeBytes(mp.get_property_number("file-size")) + "",
+        "20",
+        "label:文件名: " + fileName + "" +
+        "              文件大小: " + humanizeBytes(mp.get_property_number("file-size")) + "" +
+        "              视频分辨率: " + videoWidth + "x" + videoHeight + "" +
+        "              视频时长: " + duration + "",
         "-gravity",
         "northwest",
+
+        //add left margin
         "-splice",
-        "5x0",
-        "label:Resolution: " + videoWidth + "x" + videoHeight + "",
-        "-gravity",
-        "northwest",
-        "-pointsize",
-        "16",
-        "label:Duration: " + duration + "",
-        "-gravity",
-        "northwest",
-        "-splice",
-        "5x0",
+        "20x0",
+
         imgOutput,
         "-append",
         imgOutput,
@@ -466,7 +468,7 @@ function screenshotCycles(startTime, timeStep, screenshotDir) {
         mp.command_native(["screenshot-to-file", imagePath, mosaicOptions.mode]);
         var errorMsg = mp.last_error();
         if (errorMsg.length > 0) {
-            mp.osd_message("Error taking screenshot: " + errorMsg);
+            mp.osd_message("创建视频截图失败: " + errorMsg);
             return undefined;
         }
         screenshots.push(imagePath);
@@ -493,20 +495,20 @@ function checkMagick() {
  */
 function verifyVariables() {
     if (mosaicOptions.rows < 1) {
-        mp.osd_message("Mosaic rows must be greater than 0");
+        mp.osd_message("创建视频摘要的截图行数需要大于0");
         return false;
     }
     if (mosaicOptions.columns < 1) {
-        mp.osd_message("Mosaic columns must be greater than 0");
+        mp.osd_message("创建视频摘要的截图列数需要大于0");
         return false;
     }
     if (mosaicOptions.padding < 0) {
-        mp.osd_message("Mosaic padding must be greater than or equal to 0");
+        mp.osd_message("截图或图片之间的间隔大小需要大于0");
         return false;
     }
     var mosaicMode = mosaicOptions.mode.toLowerCase();
     if (mosaicMode !== "video" && mosaicMode !== "subtitles" && mosaicMode !== "window") {
-        mp.osd_message("Mosaic mode must be either 'video' or 'subtitles' or 'window'");
+        mp.osd_message("截图模式只能介于(video|subtitles|window)中");
         return false;
     }
     return true;
@@ -542,32 +544,32 @@ function main() {
     if (!magickExist) {
         var tf = paths.isUnix() ? "false" : "true";
         mp.msg.info("ImageMagick cannot be found, please install it.\nOr you can set append_magick to ".concat(tf, " in the script options."));
-        mp.osd_message("ImageMagick cannot be found, please install it.\nOr you can set append_magick to ".concat(tf, " in the script options."), 5);
+        mp.osd_message("无法找到ImageMagick, 请先安装它.".concat("\n或者在脚本的配置文件中设置append_magick为", tf), 5);
         return;
     }
     var imageCount = mosaicOptions.rows * mosaicOptions.columns;
     // get video length and divide by number of screenshots
     var videoLength = mp.get_property_number("duration");
     if (videoLength === undefined) {
-        mp.osd_message("Failed to get video length");
+        mp.osd_message("获取视频长度失败");
         return;
     }
     // get video width
     var videoWidth = mp.get_property_number("width");
     if (videoWidth === undefined) {
-        mp.osd_message("Failed to get video width");
+        mp.osd_message("获取视频宽度失败");
         return;
     }
     // get video height
     var videoHeight = mp.get_property_number("height");
     if (videoHeight === undefined) {
-        mp.osd_message("Failed to get video height");
+        mp.osd_message("获取视频高度失败");
         return;
     }
     // original time position
     var originalTimePos = mp.get_property_number("time-pos");
     if (originalTimePos === undefined) {
-        mp.osd_message("Failed to get time position");
+        mp.osd_message("获取时间位置失败");
         return;
     }
     mp.msg.info("Running Mosaic Tools with the following options:");
@@ -583,7 +585,7 @@ function main() {
     var startTime = videoLength * 0.1;
     var endTime = videoLength * 0.9;
     var timeStep = (endTime - startTime) / (imageCount - 1);
-    mp.osd_message("Creating ".concat(mosaicOptions.columns, "x").concat(mosaicOptions.rows, " mosaic of ").concat(imageCount, " screenshots..."), 2);
+    mp.osd_message("正在获取视频截图", 4);
     mp.msg.info("Creating ".concat(mosaicOptions.columns, "x").concat(mosaicOptions.rows, " mosaic of ").concat(imageCount, " screenshots..."));
     // pause video
     var homeDir = mp.command_native(["expand-path", "~~home/"]);
@@ -595,19 +597,19 @@ function main() {
     mp.set_property("pause", "no");
     if (screenshots !== undefined) {
         mp.msg.info("Creating mosaic for ".concat(mosaicOptions.columns, "x").concat(mosaicOptions.rows, " images..."));
-        mp.osd_message("Creating mosaic...", 2);
+        mp.osd_message("正在创建视频摘要", 2);
         var fileName = mp.get_property("filename");
         var outputDir = getOutputDir();
         var imgOutput_1 = paths.fixPath(mp.utils.join_path(outputDir, "".concat(createOutputName(fileName), ".").concat(mosaicOptions.format)));
         createMosaic(screenshots, videoWidth, videoHeight, fileName, videoDuration, imgOutput_1, function (success, error) {
             if (success) {
                 mp.msg.info("Mosaic created for ".concat(mosaicOptions.columns, "x").concat(mosaicOptions.rows, " images at ").concat(imgOutput_1, "..."));
-                sendOSD("Mosaic created!\n{\\b1}".concat(imgOutput_1, "{\\b0}"), 5);
+                sendOSD("视频摘要创建成功", 2);
             }
             else {
                 mp.msg.error("Failed to create mosaic for ".concat(mosaicOptions.columns, "x").concat(mosaicOptions.rows, " images..."));
                 mp.msg.error(error);
-                mp.osd_message("Failed to create mosaic for ".concat(mosaicOptions.columns, "x").concat(mosaicOptions.rows, " images..."), 5);
+                mp.osd_message("视频摘要创建失败,请检查控制台输出", 2);
             }
             // Cleanup
             mp.msg.info("Cleaning up...");

@@ -27,7 +27,7 @@ const mosaicOptions = {
     // Append the "magick" command to the command line.
     // Sometimes on windows, you cannot really use any magick command without prefixing
     // "magick", if the command failed, you can set this to `yes` in your config.
-    append_magick: "no",
+    append_magick: "yes",
     // Resize the final montage into the video height.
     // I recommend keeping this enabled since if you have a 4k video, you don't want to
     // have a montage that is basically 4k * whatever the number of screenshots you have.
@@ -176,6 +176,9 @@ class Pathing {
             if (path.indexOf("/")) {
                 path = path.replace(/\//g, "\\");
             }
+            if (path.indexOf("Program Files")) {
+                path = path.replace("Program Files", "Progra~1");
+            }
         }
         return path;
     }
@@ -222,9 +225,9 @@ function getOutputDir(): string {
     }
 
     // Use mpv home directory as fallback
-    const homeDir = mp.command_native(["expand-path", "~~home/"]) as string;
-    mp.msg.error(`Could not get screenshot directory, trying to use mpv home directory: ${homeDir}`);
-    return paths.fixPath(homeDir);
+    const desktopDir = mp.command_native(["expand-path", "~~desktop/"]) as string;
+    mp.msg.error(`Could not get screenshot directory, trying to use desktop directory: ${desktopDir}`);
+    return paths.fixPath(desktopDir);
 }
 
 /**
@@ -391,37 +394,36 @@ function runAnnotation(
     const annotateCmds = [
         ...annotateCmdsBase,
         "convert",
+
         "-background",
         "white",
+
+        "-font",
+        "华文宋体",
+
         "-pointsize",
         "40",
-        "label:mpv Media Player",
+        "label:MPV Media Player",
         "-gravity",
         "northwest",
-        "-pointsize",
-        "16",
+
+        //add top margin
         "-splice",
-        "5x0",
-        "label:File Name: " + fileName + "",
-        "-gravity",
-        "northwest",
+        "0x10",
+
         "-pointsize",
-        "16",
-        "label:File Size: " + humanizeBytes(mp.get_property_number("file-size")) + "",
+        "20",
+        "label:文件名: " + fileName + "" +
+        "              文件大小: " + humanizeBytes(mp.get_property_number("file-size")) + "" +
+        "              视频分辨率: " + videoWidth + "x" + videoHeight + "" +
+        "              视频时长: " + duration + "",
         "-gravity",
         "northwest",
+
+        //add left margin
         "-splice",
-        "5x0",
-        "label:Resolution: " + videoWidth + "x" + videoHeight + "",
-        "-gravity",
-        "northwest",
-        "-pointsize",
-        "16",
-        "label:Duration: " + duration + "",
-        "-gravity",
-        "northwest",
-        "-splice",
-        "5x0",
+        "20x0",
+
         imgOutput,
         "-append",
         imgOutput,
@@ -529,7 +531,7 @@ function screenshotCycles(startTime: number, timeStep: number, screenshotDir: st
         mp.command_native(["screenshot-to-file", imagePath, mosaicOptions.mode]) as string;
         const errorMsg = mp.last_error();
         if (errorMsg.length > 0) {
-            mp.osd_message("Error taking screenshot: " + errorMsg);
+            mp.osd_message("创建视频截图失败: " + errorMsg);
             return undefined;
         }
         screenshots.push(imagePath);
@@ -558,20 +560,20 @@ function checkMagick(): boolean {
  */
 function verifyVariables(): boolean {
     if (mosaicOptions.rows < 1) {
-        mp.osd_message("Mosaic rows must be greater than 0");
+        mp.osd_message("创建视频摘要的截图行数需要大于0");
         return false;
     }
     if (mosaicOptions.columns < 1) {
-        mp.osd_message("Mosaic columns must be greater than 0");
+        mp.osd_message("创建视频摘要的截图列数需要大于0");
         return false;
     }
     if (mosaicOptions.padding < 0) {
-        mp.osd_message("Mosaic padding must be greater than or equal to 0");
+        mp.osd_message("截图或图片之间的间隔大小需要大于0");
         return false;
     }
     const mosaicMode = mosaicOptions.mode.toLowerCase();
     if (mosaicMode !== "video" && mosaicMode !== "subtitles" && mosaicMode !== "window") {
-        mp.osd_message("Mosaic mode must be either 'video' or 'subtitles' or 'window'");
+        mp.osd_message("截图模式只能介于(video|subtitles|window)中");
         return false;
     }
     return true;
@@ -608,32 +610,32 @@ function main(): void {
     if (!magickExist) {
         const tf = paths.isUnix() ? "false" : "true";
         mp.msg.info(`ImageMagick cannot be found, please install it.\nOr you can set append_magick to ${tf} in the script options.`);
-        mp.osd_message(`ImageMagick cannot be found, please install it.\nOr you can set append_magick to ${tf} in the script options.`, 5);
+        mp.osd_message(`无法找到ImageMagick, 请先安装它.\n或者在脚本的配置文件中设置append_magick为${tf}`, 5);
         return;
     }
     const imageCount = mosaicOptions.rows * mosaicOptions.columns;
     // get video length and divide by number of screenshots
     const videoLength = mp.get_property_number("duration");
     if (videoLength === undefined) {
-        mp.osd_message("Failed to get video length");
+        mp.osd_message("获取视频长度失败");
         return;
     }
     // get video width
     const videoWidth = mp.get_property_number("width");
     if (videoWidth === undefined) {
-        mp.osd_message("Failed to get video width");
+        mp.osd_message("获取视频宽度失败");
         return;
     }
     // get video height
     const videoHeight = mp.get_property_number("height");
     if (videoHeight === undefined) {
-        mp.osd_message("Failed to get video height");
+        mp.osd_message("获取视频高度失败");
         return;
     }
     // original time position
     const originalTimePos = mp.get_property_number("time-pos");
     if (originalTimePos === undefined) {
-        mp.osd_message("Failed to get time position");
+        mp.osd_message("获取时间位置失败");
         return;
     }
 
@@ -651,7 +653,7 @@ function main(): void {
     const startTime = videoLength * 0.1;
     const endTime = videoLength * 0.9;
     const timeStep = (endTime - startTime) / (imageCount - 1);
-    mp.osd_message(`Creating ${mosaicOptions.columns}x${mosaicOptions.rows} mosaic of ${imageCount} screenshots...`, 2);
+    mp.osd_message("正在获取视频截图", 4);
     mp.msg.info(`Creating ${mosaicOptions.columns}x${mosaicOptions.rows} mosaic of ${imageCount} screenshots...`);
     // pause video
     const homeDir = mp.command_native(["expand-path", "~~home/"])  as string;
@@ -663,7 +665,7 @@ function main(): void {
     mp.set_property("pause", "no");
     if (screenshots !== undefined) {
         mp.msg.info(`Creating mosaic for ${mosaicOptions.columns}x${mosaicOptions.rows} images...`)
-        mp.osd_message("Creating mosaic...", 2);
+        mp.osd_message("正在创建视频摘要", 2);
         const fileName = mp.get_property("filename") as string;
         const outputDir = getOutputDir();
         const imgOutput = paths.fixPath(mp.utils.join_path(outputDir, `${createOutputName(fileName)}.${mosaicOptions.format}`));
@@ -678,11 +680,11 @@ function main(): void {
             (success, error) => {
             if (success) {
                 mp.msg.info(`Mosaic created for ${mosaicOptions.columns}x${mosaicOptions.rows} images at ${imgOutput}...`);
-                sendOSD(`Mosaic created!\n{\\b1}${imgOutput}{\\b0}`, 5);
+                sendOSD("视频摘要创建成功", 2);
             } else {
                 mp.msg.error(`Failed to create mosaic for ${mosaicOptions.columns}x${mosaicOptions.rows} images...`);
                 mp.msg.error(error);
-                mp.osd_message(`Failed to create mosaic for ${mosaicOptions.columns}x${mosaicOptions.rows} images...`, 5);
+                mp.osd_message("视频摘要创建失败,请检查控制台输出", 2);
             }
             // Cleanup
             mp.msg.info("Cleaning up...");
